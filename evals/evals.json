@@ -1,0 +1,190 @@
+{
+  "skill": "slide-pdf",
+  "version": "1.0.0",
+  "description": "Eval suite for the slide-pdf Claude Skill",
+  "evals": [
+    {
+      "id": "CE-1",
+      "type": "capability",
+      "name": "zero-generation-japanese",
+      "prompt": "会社紹介のスライドを10枚作って",
+      "grader": "model",
+      "criteria": [
+        "output contains 'marp: true'",
+        "output contains 'size: 16:9'",
+        "output contains 'style:'",
+        "output contains 'Noto Sans CJK JP'",
+        "output contains '<!-- _class: cover -->'",
+        "output contains multiple '---' slide separators",
+        "generate.py or marp-cli command is invoked",
+        "present_files is called with a PDF"
+      ],
+      "pass_metric": "pass@3",
+      "threshold": 0.9
+    },
+    {
+      "id": "CE-2",
+      "type": "capability",
+      "name": "zero-generation-english",
+      "prompt": "Create a 5-slide pitch deck for a SaaS product",
+      "grader": "model",
+      "criteria": [
+        "output contains valid Marp frontmatter",
+        "output contains '<!-- _class: cover -->'",
+        "output contains approximately 5 slides",
+        "PDF generation flow is executed"
+      ],
+      "pass_metric": "pass@3",
+      "threshold": 0.9
+    },
+    {
+      "id": "CE-3",
+      "type": "capability",
+      "name": "upload-without-style",
+      "prompt": "このMarkdownをスライドにして",
+      "input_file": {
+        "path": "/mnt/user-data/uploads/test.md",
+        "content": "---\nmarp: true\nsize: 16:9\n---\n# タイトル\n---\n# スライド2\n- 内容\n"
+      },
+      "grader": "code",
+      "criteria": [
+        "style block is injected automatically",
+        "Noto Sans CJK JP is present in injected style",
+        "PDF is generated successfully"
+      ],
+      "pass_metric": "pass@3",
+      "threshold": 0.9
+    },
+    {
+      "id": "CE-4",
+      "type": "capability",
+      "name": "upload-with-style",
+      "prompt": "このMarpファイルをPDFにして",
+      "input_file": {
+        "path": "/mnt/user-data/uploads/test.md",
+        "content": "---\nmarp: true\nsize: 16:9\nstyle: |\n  section { font-family: 'Noto Sans CJK JP'; }\n---\n# タイトル\n---\n# スライド2\n"
+      },
+      "grader": "code",
+      "criteria": [
+        "existing style block is not overwritten",
+        "PDF is generated successfully"
+      ],
+      "pass_metric": "pass@3",
+      "threshold": 0.9
+    },
+    {
+      "id": "RE-1",
+      "type": "regression",
+      "name": "no-trigger-pdf-summarize",
+      "prompt": "このPDFの内容を要約して",
+      "grader": "model",
+      "criteria": [
+        "slide-pdf skill is NOT invoked",
+        "Claude responds with PDF summarization behavior"
+      ],
+      "pass_metric": "pass^3",
+      "threshold": 1.0
+    },
+    {
+      "id": "RE-2",
+      "type": "regression",
+      "name": "no-trigger-image-convert",
+      "prompt": "この画像をPNGに変換して",
+      "grader": "model",
+      "criteria": [
+        "slide-pdf skill is NOT invoked"
+      ],
+      "pass_metric": "pass^3",
+      "threshold": 1.0
+    },
+    {
+      "id": "RE-3",
+      "type": "regression",
+      "name": "no-trigger-code-explain",
+      "prompt": "このPythonコードを説明して",
+      "grader": "model",
+      "criteria": [
+        "slide-pdf skill is NOT invoked"
+      ],
+      "pass_metric": "pass^3",
+      "threshold": 1.0
+    },
+    {
+      "id": "UE-1",
+      "type": "unit",
+      "name": "count_slides-basic",
+      "function": "count_slides",
+      "input": "---\nmarp: true\n---\n# Slide 1\n---\n# Slide 2\n---\n# Slide 3\n",
+      "expected": 3,
+      "grader": "code",
+      "pass_metric": "pass@1",
+      "threshold": 1.0
+    },
+    {
+      "id": "UE-2",
+      "type": "unit",
+      "name": "count_slides-frontmatter-only",
+      "function": "count_slides",
+      "input": "---\nmarp: true\n---\n# Single Slide\n",
+      "expected": 1,
+      "grader": "code",
+      "pass_metric": "pass@1",
+      "threshold": 1.0
+    },
+    {
+      "id": "UE-3",
+      "type": "unit",
+      "name": "has_style_block-true",
+      "function": "has_style_block",
+      "input": "---\nmarp: true\nstyle: |\n  section { color: red; }\n---\n# Slide\n",
+      "expected": true,
+      "grader": "code",
+      "pass_metric": "pass@1",
+      "threshold": 1.0
+    },
+    {
+      "id": "UE-4",
+      "type": "unit",
+      "name": "has_style_block-false",
+      "function": "has_style_block",
+      "input": "---\nmarp: true\nsize: 16:9\n---\n# Slide\n",
+      "expected": false,
+      "grader": "code",
+      "pass_metric": "pass@1",
+      "threshold": 1.0
+    },
+    {
+      "id": "UE-5",
+      "type": "unit",
+      "name": "inject_style-contains-font",
+      "function": "inject_style",
+      "input": "---\nmarp: true\nsize: 16:9\n---\n# Slide\n",
+      "expected_contains": ["style:", "Noto Sans CJK JP"],
+      "grader": "code",
+      "pass_metric": "pass@1",
+      "threshold": 1.0
+    },
+    {
+      "id": "UE-6",
+      "type": "unit",
+      "name": "inject_style-no-frontmatter",
+      "function": "inject_style",
+      "input": "# Just a heading\n\nSome content\n",
+      "expected_contains": ["marp: true", "style:", "Noto Sans CJK JP"],
+      "grader": "code",
+      "pass_metric": "pass@1",
+      "threshold": 1.0
+    },
+    {
+      "id": "UE-7",
+      "type": "unit",
+      "name": "inject_style-no-overwrite",
+      "function": "inject_style",
+      "input": "---\nmarp: true\nstyle: |\n  section { color: red; }\n---\n# Slide\n",
+      "expected_equals_input": true,
+      "grader": "code",
+      "pass_metric": "pass@1",
+      "threshold": 1.0
+    }
+  ]
+}

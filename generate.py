@@ -102,7 +102,9 @@ def has_style_block(content: str) -> bool:
 
 
 def inject_style(content: str) -> str:
-    """Inject default style into frontmatter if not present."""
+    """Inject default style into frontmatter if not present. Idempotent."""
+    if has_style_block(content):
+        return content
     # Find end of frontmatter
     match = re.match(r"^(---\n.*?\n)(---)", content, re.DOTALL)
     if not match:

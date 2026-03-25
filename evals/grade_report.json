@@ -1,0 +1,44 @@
+[
+  {
+    "id": "UE-1",
+    "name": "count_slides-basic",
+    "status": "PASS",
+    "detail": "got 3, expected 3"
+  },
+  {
+    "id": "UE-2",
+    "name": "count_slides-frontmatter-only",
+    "status": "PASS",
+    "detail": "got 1, expected 1"
+  },
+  {
+    "id": "UE-3",
+    "name": "has_style_block-true",
+    "status": "PASS",
+    "detail": "got True, expected True"
+  },
+  {
+    "id": "UE-4",
+    "name": "has_style_block-false",
+    "status": "PASS",
+    "detail": "got False, expected False"
+  },
+  {
+    "id": "UE-5",
+    "name": "inject_style-contains-font",
+    "status": "PASS",
+    "detail": "style:True font:True"
+  },
+  {
+    "id": "UE-6",
+    "name": "inject_style-no-frontmatter",
+    "status": "PASS",
+    "detail": "marp:True style:True font:True"
+  },
+  {
+    "id": "UE-7",
+    "name": "inject_style-no-overwrite",
+    "status": "PASS",
+    "detail": "content unchanged"
+  }
+]
