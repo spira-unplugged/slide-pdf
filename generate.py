@@ -10,10 +10,17 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
-CHROMIUM_PATH = "/opt/pw-browsers/chromium-1194/chrome-linux/chrome"
+# Allow env-var override: CHROMIUM_PATH=/path/to/chrome python generate.py ...
+CHROMIUM_PATH = os.environ.get(
+    "CHROMIUM_PATH",
+    "/opt/pw-browsers/chromium-1194/chrome-linux/chrome",
+)
 DEFAULT_OUTPUT = "/mnt/user-data/outputs/slides.pdf"
+ALLOWED_INPUT_BASE = Path("/mnt/user-data").resolve()
+ALLOWED_OUTPUT_BASE = Path("/mnt/user-data/outputs").resolve()
 SLIDES_PER_TIMEOUT_THRESHOLD = 20
 TIMEOUT_SHORT = 60
 TIMEOUT_LONG = 120
@@ -85,17 +92,49 @@ DEFAULT_STYLE = """\
   }"""
 
 
+def safe_path(raw: str, allowed_base: Path) -> Path:
+    """Resolve path and assert it is within the allowed base directory."""
+    resolved = Path(raw).resolve()
+    if not str(resolved).startswith(str(allowed_base)):
+        print(
+            f"[slide-pdf] ERROR: Path outside allowed directory: {resolved}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    return resolved
+
+
 def count_slides(content: str) -> int:
-    """Count slide separators (---) to estimate slide count."""
-    separators = re.findall(r"^---\s*$", content, re.MULTILINE)
-    # First --- is frontmatter end, rest are slide breaks
-    slide_count = max(1, len(separators) - 1)
-    return slide_count
+    """Count the number of slides by counting body-level --- separators.
+
+    Marp files have the structure:
+        --- (frontmatter open)
+        ...frontmatter...
+        --- (frontmatter close / first separator)
+        # Slide 1
+        --- (slide break)
+        # Slide 2
+
+    We split on frontmatter boundaries first, then count slide breaks in the body.
+    """
+    # Normalise line endings before parsing
+    content = content.replace("\r\n", "\n").replace("\r", "\n")
+
+    # Strip frontmatter: everything between the first pair of ---
+    body = re.sub(r"^---\n.*?\n---\n?", "", content, count=1, flags=re.DOTALL)
+
+    # Each remaining standalone --- is a slide separator
+    separators = re.findall(r"^---\s*$", body, re.MULTILINE)
+    # slides = separators + 1, minimum 1
+    return max(1, len(separators) + 1)
 
 
 def has_style_block(content: str) -> bool:
     """Check if frontmatter already contains a style: block."""
-    frontmatter_match = re.match(r"^---\n(.*?)\n---", content, re.DOTALL)
+    # Normalise line endings
+    content = content.replace("\r\n", "\n").replace("\r", "\n")
+    # Cap search to first 64 KB to avoid ReDoS on adversarial input
+    frontmatter_match = re.match(r"^---\n(.*?)\n---", content[:65536], re.DOTALL)
     if not frontmatter_match:
         return False
     return "style:" in frontmatter_match.group(1)
@@ -103,10 +142,14 @@ def has_style_block(content: str) -> bool:
 
 def inject_style(content: str) -> str:
     """Inject default style into frontmatter if not present. Idempotent."""
+    # Normalise line endings
+    content = content.replace("\r\n", "\n").replace("\r", "\n")
+
     if has_style_block(content):
         return content
-    # Find end of frontmatter
-    match = re.match(r"^(---\n.*?\n)(---)", content, re.DOTALL)
+
+    # Cap search to first 64 KB to avoid ReDoS
+    match = re.match(r"^(---\n.*?\n)(---)", content[:65536], re.DOTALL)
     if not match:
         # No frontmatter — prepend minimal Marp frontmatter with style
         header = f"---\nmarp: true\nsize: 16:9\nstyle: |\n{DEFAULT_STYLE}\n---\n\n"
@@ -133,15 +176,15 @@ def find_chromium() -> str | None:
     return None
 
 
-def generate_pdf(input_path: str, output_path: str) -> int:
+def generate_pdf(input_path: Path, output_path: Path) -> int:
     """Run Marp CLI to generate PDF. Returns exit code."""
-    content = Path(input_path).read_text(encoding="utf-8")
+    content = input_path.read_text(encoding="utf-8")
 
-    # Inject style if missing
-    if not has_style_block(content):
+    # Inject style if missing — write to a temp file, never modify the source
+    needs_injection = not has_style_block(content)
+    if needs_injection:
         print("[slide-pdf] style: block not found — injecting default style", file=sys.stderr)
         content = inject_style(content)
-        Path(input_path).write_text(content, encoding="utf-8")
 
     # Count slides to pick timeout
     slide_count = count_slides(content)
@@ -151,23 +194,38 @@ def generate_pdf(input_path: str, output_path: str) -> int:
     # Find Chromium
     chromium = find_chromium()
     if not chromium:
-        print("[slide-pdf] ERROR: Chromium not found. Install Playwright or set CHROMIUM_PATH.", file=sys.stderr)
+        print(
+            "[slide-pdf] ERROR: Chromium not found. "
+            "Install Playwright or set CHROMIUM_PATH environment variable.",
+            file=sys.stderr,
+        )
         return 1
 
     # Ensure output directory exists
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    cmd = [
-        "timeout", str(timeout),
-        "npx", "@marp-team/marp-cli", input_path,
-        "--no-stdin", "--pdf",
-        "--browser", "chrome",
-        "--browser-path", chromium,
-        "-o", output_path,
-    ]
+    # Write to temp file (avoids in-place mutation of the source file)
+    tmp_fd, tmp_path = tempfile.mkstemp(suffix=".md")
+    try:
+        with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
+            f.write(content)
 
-    print(f"[slide-pdf] Running: {' '.join(cmd)}", file=sys.stderr)
-    result = subprocess.run(cmd, capture_output=False)
+        cmd = [
+            "timeout", str(timeout),
+            "npx", "@marp-team/marp-cli",
+            "--",                    # end-of-options: prevents path being parsed as a flag
+            tmp_path,
+            "--no-stdin", "--pdf",
+            "--browser", "chrome",
+            "--browser-path", chromium,
+            "-o", str(output_path),
+        ]
+
+        print(f"[slide-pdf] Running marp-cli (input: {input_path}, output: {output_path})", file=sys.stderr)
+        result = subprocess.run(cmd)
+
+    finally:
+        Path(tmp_path).unlink(missing_ok=True)
 
     if result.returncode == 124:
         print(
@@ -191,11 +249,18 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    if not Path(args.input).exists():
-        print(f"[slide-pdf] ERROR: Input file not found: {args.input}", file=sys.stderr)
+    input_path = safe_path(args.input, ALLOWED_INPUT_BASE)
+    output_path = safe_path(args.output, ALLOWED_OUTPUT_BASE)
+
+    if not input_path.exists():
+        print(f"[slide-pdf] ERROR: Input file not found: {input_path}", file=sys.stderr)
         sys.exit(1)
 
-    exit_code = generate_pdf(args.input, args.output)
+    if input_path.suffix.lower() not in {".md", ".markdown"}:
+        print(f"[slide-pdf] ERROR: Input must be a Markdown file (.md or .markdown): {input_path}", file=sys.stderr)
+        sys.exit(1)
+
+    exit_code = generate_pdf(input_path, output_path)
     sys.exit(exit_code)
 
 
