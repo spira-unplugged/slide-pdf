@@ -1,12 +1,18 @@
 # slide-pdf
 
-Claude Skill: Markdown → PDF スライド生成（Marp CLI + Chromium）
+Claude Skill: Markdown → PDF / PPTX / HTML スライド生成（Marp CLI + Chromium）
 
 ## 何ができるか
 
-- テーマ・構成を指示するだけで Marp Markdown スライドをゼロから生成し PDF で出力
+- テーマ・構成を指示するだけで Marp Markdown スライドをゼロから生成し PDF / PPTX / HTML で出力
 - アップロードした `.md` ファイルを PDF に変換（`style:` がなければ自動注入）
 - 日本語対応（Noto Sans CJK JP フォント使用）
+- Marp 組み込みテーマ対応（`default` / `gaia` / `uncover`）
+- アスペクト比選択（`16:9` / `4:3` / `9:16`）
+- 数式レンダリング対応（MathJax / KaTeX）
+- PDF しおり自動追加（5枚超で有効）・スピーカーノート PDF 出力
+- `--lint` でスライド構造を事前検証（Marp CLI 起動なし）
+- `--json` で処理結果を構造化 JSON 出力（AI 統合用）
 
 ## インストール
 
@@ -37,12 +43,24 @@ git clone https://github.com/spira-unplugged/slide-pdf
 SaaS製品の営業用ピッチデッキを作って（英語）
 ```
 
+```
+gaiaテーマで製品ロードマップのスライドを作って
+```
+
+```
+二次方程式の解説スライドを数式付きで作って
+```
+
 ### アップロードファイルを PDF に変換
 
 Marp Markdown ファイル（`.md`）をアップロードして:
 
 ```
 このMarkdownをPDFスライドにして
+```
+
+```
+このMarkdownをPowerPointで出力して
 ```
 
 ## 技術構成
@@ -52,7 +70,10 @@ Marp Markdown ファイル（`.md`）をアップロードして:
 | スライドエンジン | [Marp CLI](https://github.com/marp-team/marp-cli) |
 | PDF レンダリング | Playwright 同梱 Chromium |
 | フォント | Noto Sans CJK JP（日本語優先） |
-| 出力先 | `/mnt/user-data/outputs/slides.pdf` |
+| 出力フォーマット | PDF / PPTX / HTML |
+| テーマ | default（カスタム CSS）/ gaia / uncover |
+| 数式 | MathJax / KaTeX（Marp CLI 同梱） |
+| 出力先 | `/mnt/user-data/outputs/slides.<format>` |
 
 ## スライドクラス
 
@@ -70,8 +91,8 @@ slide-pdf/
 ├── generate.py       # PDF 生成スクリプト
 ├── REFERENCE.md      # CSS テンプレート・構成パターン詳細
 └── evals/
-    ├── evals.json    # eval 定義（14 ケース）
-    └── grade.py      # Unit eval 自動グレーダー
+    ├── evals.json    # eval 定義（19 ケース）
+    └── grade.py      # Unit eval 自動グレーダー（31 ケース）
 ```
 
 ## Eval の実行
@@ -80,7 +101,7 @@ Unit eval（`generate.py` の純粋関数を自動検証）:
 
 ```bash
 python evals/grade.py
-# 期待結果: 7/7 passed
+# 期待結果: 31/31 passed
 ```
 
 ## 環境変数
@@ -88,6 +109,8 @@ python evals/grade.py
 | 変数 | デフォルト | 説明 |
 |------|-----------|------|
 | `CHROMIUM_PATH` | `/opt/pw-browsers/chromium-1194/chrome-linux/chrome` | Chromium バイナリのパス |
+| `ALLOWED_INPUT_BASE` | `/mnt/user-data` | 入力ファイルの許可ベースディレクトリ |
+| `ALLOWED_OUTPUT_BASE` | `/mnt/user-data/outputs` | 出力ファイルの許可ベースディレクトリ |
 
 ## ライセンス
 
