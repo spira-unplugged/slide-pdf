@@ -13,10 +13,12 @@ from pathlib import Path
 # Allow importing generate.py from project root
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from generate import (
+    ALLOWED_INPUT_BASE,
     PathSecurityError,
     count_slides,
     default_output_path,
     format_to_marp_flag,
+    has_math_block,
     has_size_block,
     has_style_block,
     inject_math,
@@ -26,7 +28,6 @@ from generate import (
     safe_path,
     should_auto_outlines,
     should_inject_style,
-    ALLOWED_INPUT_BASE,
 )
 
 
@@ -122,13 +123,15 @@ def run_evals() -> list[dict[str, str]]:
            "content unchanged" if unchanged14 else "content was modified")
 
     # UE-15: safe_path — path traversal raises PathSecurityError
+    # Note: os.path.realpath normalises ".." without following symlinks when the path
+    # does not exist, so this covers the path-normalisation case. Symlink traversal
+    # requires an on-disk integration test (not performed here).
     traversal_blocked = False
     try:
         safe_path("/mnt/user-data/../etc/passwd", ALLOWED_INPUT_BASE)
     except PathSecurityError:
         traversal_blocked = True
-    except Exception:
-        pass
+    # Any other exception (AttributeError, TypeError, etc.) propagates and fails the suite
     record("UE-15", "safe_path-traversal-blocked", traversal_blocked,
            "PathSecurityError raised" if traversal_blocked else "traversal was NOT blocked")
 
@@ -207,6 +210,50 @@ def run_evals() -> list[dict[str, str]]:
     has_cover_issue = any("cover" in i.lower() for i in issues25)
     record("UE-25", "lint_slides-missing-cover", not valid25 and has_cover_issue,
            f"valid:{valid25} issues:{issues25}")
+
+    # UE-26: has_size_block — False when key is absent
+    c26 = "---\nmarp: true\n---\n# Slide\n"
+    has26 = has_size_block(c26)
+    record("UE-26", "has_size_block-false", has26 is False, f"got {has26}, expected False")
+
+    # UE-27: inject_size — no frontmatter path creates minimal header with size
+    c27 = "# Just a heading\n\nSome content\n"
+    injected27 = inject_size(c27, size="4:3")
+    has_marp27 = "marp: true" in injected27
+    has_size27 = "size: 4:3" in injected27
+    record("UE-27", "inject_size-no-frontmatter", has_marp27 and has_size27,
+           f"marp:{has_marp27} size:{has_size27}")
+
+    # UE-28: lint_slides — size: missing produces [WARNING] advisory (non-blocking)
+    c28 = "---\nmarp: true\n---\n<!-- _class: cover -->\n# Title\n"
+    valid28, issues28 = lint_slides(c28)
+    has_size_warn28 = any("[WARNING]" in i and "size" in i for i in issues28)
+    record("UE-28", "lint_slides-size-advisory", valid28 and has_size_warn28,
+           f"valid:{valid28} issues:{issues28}")
+
+    # UE-29: lint_slides — cover directive inside code block does NOT satisfy cover check
+    c29 = (
+        "---\nmarp: true\nsize: 16:9\n---\n"
+        "# Intro\n\n"
+        "```markdown\n<!-- _class: cover -->\n# Example\n```\n"
+        "---\n# Slide 2\n"
+    )
+    valid29, issues29 = lint_slides(c29)
+    has_cover_issue29 = any("cover" in i.lower() for i in issues29)
+    record("UE-29", "lint_slides-cover-in-code-block", not valid29 and has_cover_issue29,
+           f"valid:{valid29} issues:{issues29}")
+
+    # UE-30: has_style_block — no false positive from YAML value containing 'style:'
+    c30 = "---\nmarp: true\ndescription: sets font-style: italic\n---\n# Slide\n"
+    has30 = has_style_block(c30)
+    record("UE-30", "has_style_block-no-false-positive", has30 is False,
+           f"got {has30}, expected False (substring in value should not match)")
+
+    # UE-31: has_math_block — no false positive from YAML value containing 'math:'
+    c31 = "---\nmarp: true\ntitle: learn math: basics\n---\n# Slide\n"
+    has31 = has_math_block(c31)
+    record("UE-31", "has_math_block-no-false-positive", has31 is False,
+           f"got {has31}, expected False")
 
     return results
 

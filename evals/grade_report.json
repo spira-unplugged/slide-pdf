@@ -51,7 +51,7 @@
     "id": "UE-9",
     "name": "default_output_path-pptx",
     "status": "PASS",
-    "detail": "got '/mnt/user-data/outputs/slides.pptx'"
+    "detail": "got 'C:\\\\mnt\\\\user-data\\\\outputs\\\\slides.pptx'"
   },
   {
     "id": "UE-10",
@@ -148,5 +148,41 @@
     "name": "lint_slides-missing-cover",
     "status": "PASS",
     "detail": "valid:False issues:['No cover slide found. Add <!-- _class: cover --> or <!-- _class: lead --> to the first slide']"
+  },
+  {
+    "id": "UE-26",
+    "name": "has_size_block-false",
+    "status": "PASS",
+    "detail": "got False, expected False"
+  },
+  {
+    "id": "UE-27",
+    "name": "inject_size-no-frontmatter",
+    "status": "PASS",
+    "detail": "marp:True size:True"
+  },
+  {
+    "id": "UE-28",
+    "name": "lint_slides-size-advisory",
+    "status": "PASS",
+    "detail": "valid:True issues:[\"[WARNING] Frontmatter missing 'size:' directive (Marp defaults to 16:9)\"]"
+  },
+  {
+    "id": "UE-29",
+    "name": "lint_slides-cover-in-code-block",
+    "status": "PASS",
+    "detail": "valid:False issues:['No cover slide found. Add <!-- _class: cover --> or <!-- _class: lead --> to the first slide']"
+  },
+  {
+    "id": "UE-30",
+    "name": "has_style_block-no-false-positive",
+    "status": "PASS",
+    "detail": "got False, expected False (substring in value should not match)"
+  },
+  {
+    "id": "UE-31",
+    "name": "has_math_block-no-false-positive",
+    "status": "PASS",
+    "detail": "got False, expected False"
   }
 ]

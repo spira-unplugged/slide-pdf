@@ -13,6 +13,7 @@ Usage: python generate.py --input <slide.md> [--output <path>]
 
 import argparse
 import dataclasses
+import glob
 import json
 import logging
 import os
@@ -25,6 +26,9 @@ import time
 import warnings
 from pathlib import Path
 
+if sys.version_info < (3, 9):
+    raise RuntimeError("slide-pdf requires Python 3.9+ (Path.is_relative_to)")  # noqa: TRY003
+
 # ---------------------------------------------------------------------------
 # Logging
 # ---------------------------------------------------------------------------
@@ -33,6 +37,8 @@ logger = logging.getLogger("slide-pdf")
 
 
 def _setup_logging() -> None:
+    if logger.handlers:
+        return  # avoid duplicate handlers when main() is called more than once
     handler = logging.StreamHandler(sys.stderr)
     handler.setFormatter(logging.Formatter("[slide-pdf] %(levelname)s: %(message)s"))
     logger.addHandler(handler)
@@ -64,6 +70,8 @@ AUTO_OUTLINES_THRESHOLD = 5
 # Cap frontmatter regex scans to prevent ReDoS on adversarial input.
 # All helpers that scan frontmatter use this constant — keep them in sync.
 MAX_FRONTMATTER_SCAN_BYTES = 65536
+# Body scan cap used by count_slides(); larger than frontmatter cap.
+MAX_BODY_SCAN_BYTES = MAX_FRONTMATTER_SCAN_BYTES * 4  # 256 KB
 MAX_INPUT_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
 
 VALID_FORMATS = {"pdf", "pptx", "html"}
@@ -194,10 +202,13 @@ def format_to_marp_flag(fmt: str) -> str:
 
 
 def default_output_path(fmt: str) -> str:
-    """Return the default output path for the given format."""
+    """Return the default output path for the given format.
+
+    Uses ALLOWED_OUTPUT_BASE so env-var overrides propagate here too.
+    """
     if fmt not in VALID_FORMATS:
         raise ValueError(f"Unknown format: {fmt!r}. Valid: {', '.join(sorted(VALID_FORMATS))}")
-    return f"/mnt/user-data/outputs/slides.{fmt}"
+    return str(ALLOWED_OUTPUT_BASE / f"slides.{fmt}")
 
 
 def should_inject_style(theme: str) -> bool:
@@ -229,7 +240,7 @@ def count_slides(content: str) -> int:
     content = content.replace("\r\n", "\n").replace("\r", "\n")
 
     # Cap body scan to avoid ReDoS on adversarial input
-    body_content = content[:MAX_FRONTMATTER_SCAN_BYTES * 4]
+    body_content = content[:MAX_BODY_SCAN_BYTES]
 
     # Strip frontmatter: everything between the first pair of ---
     # Newlines are normalised to \n above — regex assumes \n only
@@ -254,7 +265,9 @@ def has_style_block(content: str) -> bool:
     )
     if not frontmatter_match:
         return False
-    return "style:" in frontmatter_match.group(1)
+    # Use line-anchored regex to avoid false positives from YAML values
+    # that contain "style:" as a substring (e.g. description: "sets font-style:...")
+    return bool(re.search(r"^style:", frontmatter_match.group(1), re.MULTILINE))
 
 
 def inject_style(content: str) -> str:
@@ -286,7 +299,7 @@ def has_math_block(content: str) -> bool:
     )
     if not frontmatter_match:
         return False
-    return "math:" in frontmatter_match.group(1)
+    return bool(re.search(r"^math:", frontmatter_match.group(1), re.MULTILINE))
 
 
 def inject_math(content: str, engine: str = "mathjax") -> str:
@@ -319,7 +332,7 @@ def has_size_block(content: str) -> bool:
     )
     if not frontmatter_match:
         return False
-    return "size:" in frontmatter_match.group(1)
+    return bool(re.search(r"^size:", frontmatter_match.group(1), re.MULTILINE))
 
 
 def inject_size(content: str, size: str = "16:9") -> str:
@@ -349,42 +362,50 @@ def inject_size(content: str, size: str = "16:9") -> str:
 def lint_slides(content: str) -> tuple[bool, list[str]]:
     """Check slide structure without invoking Marp CLI.
 
-    Returns (is_valid, list_of_issues). Issues are human-readable strings.
-    An empty issue list means the file passed all checks.
+    Returns (is_valid, messages). Messages are human-readable strings.
+    Errors (blocking) appear as-is; non-blocking advisories are prefixed with
+    "[WARNING]". is_valid is False only when at least one error exists.
+    An empty message list means the file passed all checks.
     """
     content = content.replace("\r\n", "\n").replace("\r", "\n")
-    issues: list[str] = []
+    errors: list[str] = []
+    advisories: list[str] = []
 
     fm_match = re.match(r"^---\n(.*?)\n---", content[:MAX_FRONTMATTER_SCAN_BYTES], re.DOTALL)
     if not fm_match:
-        issues.append("Missing YAML frontmatter (expected --- ... --- block at start of file)")
-        return False, issues
+        errors.append("Missing YAML frontmatter (expected --- ... --- block at start of file)")
+        return False, errors
 
     fm = fm_match.group(1)
 
-    if "marp: true" not in fm:
-        issues.append("Frontmatter missing 'marp: true'")
+    # marp: true is required — Marp will silently not render without it
+    if not re.search(r"^marp:\s*true", fm, re.MULTILINE):
+        errors.append("Frontmatter missing 'marp: true'")
 
-    if "size:" not in fm:
-        issues.append("Frontmatter missing 'size:' directive (recommended: size: 16:9)")
+    # size: is recommended but Marp defaults to 16:9 when absent
+    if not re.search(r"^size:", fm, re.MULTILINE):
+        advisories.append("[WARNING] Frontmatter missing 'size:' directive (Marp defaults to 16:9)")
 
+    # Strip fenced code blocks before checking for cover directive to avoid
+    # false positives from Marp tutorial slides that show the directive as an example
+    body_no_code = re.sub(r"```.*?```", "", content, flags=re.DOTALL)
     has_cover = (
-        "<!-- _class: cover -->" in content
-        or "<!-- _class: lead -->" in content
+        "<!-- _class: cover -->" in body_no_code
+        or "<!-- _class: lead -->" in body_no_code
     )
     if not has_cover:
-        issues.append(
+        errors.append(
             "No cover slide found. Add <!-- _class: cover --> or <!-- _class: lead --> "
             "to the first slide"
         )
 
     slide_count = count_slides(content)
     if slide_count > 50:
-        issues.append(
-            f"High slide count ({slide_count}). Consider splitting into multiple files."
+        advisories.append(
+            f"[WARNING] High slide count ({slide_count}). Consider splitting into multiple files."
         )
 
-    return len(issues) == 0, issues
+    return len(errors) == 0, errors + advisories
 
 
 # ---------------------------------------------------------------------------
@@ -416,7 +437,6 @@ def find_chromium() -> str | None:
         pass
 
     # Fallback candidates: use glob to avoid hardcoding specific build numbers
-    import glob
     playwright_candidates = sorted(
         glob.glob("/opt/pw-browsers/chromium-*/chrome-linux/chrome"),
         reverse=True,  # prefer highest version number
@@ -476,6 +496,10 @@ def _prepare_content(
 
     Pure side-effect-free transformation — does not touch the filesystem.
     """
+    # inject_size is called first so that inject_style (which synthesises new
+    # frontmatter when none exists) does not create a second --- block.
+    # Skip injection when size == "16:9": Marp defaults to 16:9, so omitting
+    # the key keeps the frontmatter minimal without changing output.
     if size != "16:9" and not has_size_block(content):
         content = inject_size(content, size)
 
@@ -506,10 +530,10 @@ def _build_marp_cmd(
     The timeout is handled by subprocess.run(timeout=N), not the timeout binary,
     so it is not included here.
     """
+    # All flags come first; -- end-of-options marker immediately before the
+    # input path so only the input is treated as a positional argument.
     cmd = [
         "npx", "@marp-team/marp-cli",
-        "--",                        # end-of-options: prevents path being parsed as a flag
-        tmp_path,
         "--no-stdin",
         format_to_marp_flag(fmt),    # --pdf / --pptx / --html
         "--browser", "chrome",
@@ -523,6 +547,7 @@ def _build_marp_cmd(
         if pdf_notes:
             cmd.append("--pdf-notes")
     cmd += ["-o", str(output_path)]
+    cmd += ["--", tmp_path]          # -- prevents the path being parsed as a flag
     return cmd
 
 
@@ -563,6 +588,11 @@ def generate_output(
 
     content = input_path.read_text(encoding="utf-8")
     content, slide_count = _prepare_content(content, theme, math, size)
+
+    if slide_count > 50:
+        msg = f"High slide count ({slide_count}). Generation may be slow."
+        run_warnings.append(msg)
+        logger.warning(msg)
 
     timeout = TIMEOUT_LONG if slide_count > SLIDES_PER_TIMEOUT_THRESHOLD else TIMEOUT_SHORT
     logger.info("%d slides detected — timeout: %ds", slide_count, timeout)
