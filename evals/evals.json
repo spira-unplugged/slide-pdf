@@ -1,6 +1,6 @@
 {
   "skill": "slide-pdf",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Eval suite for the slide-pdf Claude Skill",
   "evals": [
     {
@@ -185,6 +185,192 @@
       "grader": "code",
       "pass_metric": "pass@1",
       "threshold": 1.0
+    },
+    {
+      "id": "CE-5",
+      "type": "capability",
+      "name": "pptx-generation",
+      "prompt": "このスライドをPowerPointで出力して",
+      "grader": "model",
+      "criteria": [
+        "--format pptx flag is passed to generate.py",
+        "output file has .pptx extension",
+        "present_files is called with a PPTX file"
+      ],
+      "pass_metric": "pass@3",
+      "threshold": 0.9
+    },
+    {
+      "id": "CE-6",
+      "type": "capability",
+      "name": "html-generation",
+      "prompt": "Create slides as HTML",
+      "grader": "model",
+      "criteria": [
+        "--format html flag is passed to generate.py",
+        "output file has .html extension"
+      ],
+      "pass_metric": "pass@3",
+      "threshold": 0.9
+    },
+    {
+      "id": "CE-7",
+      "type": "capability",
+      "name": "gaia-theme-no-injected-style",
+      "prompt": "gaiaテーマでスライドを作って",
+      "grader": "model",
+      "criteria": [
+        "--theme gaia is passed to generate.py",
+        "no custom Noto Sans CSS is injected into the Markdown",
+        "PDF is generated successfully"
+      ],
+      "pass_metric": "pass@3",
+      "threshold": 0.9
+    },
+    {
+      "id": "CE-8",
+      "type": "capability",
+      "name": "auto-outlines-long-deck",
+      "prompt": "15枚のスライドを作って",
+      "grader": "model",
+      "criteria": [
+        "--pdf-outlines flag is passed automatically for 15-slide decks",
+        "PDF is generated with bookmarks"
+      ],
+      "pass_metric": "pass@3",
+      "threshold": 0.9
+    },
+    {
+      "id": "CE-9",
+      "type": "capability",
+      "name": "math-slide-generation",
+      "prompt": "Create slides explaining the quadratic formula",
+      "grader": "model",
+      "criteria": [
+        "--math mathjax is passed to generate.py",
+        "math: mathjax appears in frontmatter",
+        "LaTeX math syntax is used in slide content"
+      ],
+      "pass_metric": "pass@3",
+      "threshold": 0.9
+    },
+    {
+      "id": "UE-8",
+      "type": "unit",
+      "name": "format_to_marp_flag-pdf",
+      "function": "format_to_marp_flag",
+      "input": "pdf",
+      "expected": "--pdf",
+      "grader": "code",
+      "pass_metric": "pass@1",
+      "threshold": 1.0
+    },
+    {
+      "id": "UE-9",
+      "type": "unit",
+      "name": "default_output_path-pptx",
+      "function": "default_output_path",
+      "input": "pptx",
+      "expected_contains": [".pptx"],
+      "grader": "code",
+      "pass_metric": "pass@1",
+      "threshold": 1.0
+    },
+    {
+      "id": "UE-10",
+      "type": "unit",
+      "name": "should_inject_style-default-theme",
+      "function": "should_inject_style",
+      "input": "default",
+      "expected": true,
+      "grader": "code",
+      "pass_metric": "pass@1",
+      "threshold": 1.0
+    },
+    {
+      "id": "UE-11",
+      "type": "unit",
+      "name": "should_inject_style-gaia-theme",
+      "function": "should_inject_style",
+      "input": "gaia",
+      "expected": false,
+      "grader": "code",
+      "pass_metric": "pass@1",
+      "threshold": 1.0
+    },
+    {
+      "id": "UE-12",
+      "type": "unit",
+      "name": "should_auto_outlines-above-threshold",
+      "function": "should_auto_outlines",
+      "input": 6,
+      "expected": true,
+      "grader": "code",
+      "pass_metric": "pass@1",
+      "threshold": 1.0
+    },
+    {
+      "id": "UE-13",
+      "type": "unit",
+      "name": "inject_math-adds-mathjax",
+      "function": "inject_math",
+      "input": "---\nmarp: true\nsize: 16:9\n---\n# Slide\n",
+      "expected_contains": ["math: mathjax"],
+      "grader": "code",
+      "pass_metric": "pass@1",
+      "threshold": 1.0
+    },
+    {
+      "id": "UE-14",
+      "type": "unit",
+      "name": "inject_math-no-overwrite",
+      "function": "inject_math",
+      "input": "---\nmarp: true\nmath: katex\n---\n# Slide\n",
+      "expected_equals_input": true,
+      "grader": "code",
+      "pass_metric": "pass@1",
+      "threshold": 1.0
+    },
+    {
+      "id": "CE-10",
+      "type": "capability",
+      "name": "size-4x3-generation",
+      "prompt": "4:3サイズのスライドを作って",
+      "grader": "model",
+      "criteria": [
+        "--size 4:3 flag is passed to generate.py",
+        "size: 4:3 appears in frontmatter",
+        "PDF is generated successfully"
+      ],
+      "pass_metric": "pass@3",
+      "threshold": 0.9
+    },
+    {
+      "id": "CE-11",
+      "type": "capability",
+      "name": "lint-mode-validation",
+      "prompt": "このMarkdownのスライド構造をチェックして（生成はしなくていい）",
+      "grader": "model",
+      "criteria": [
+        "--lint flag is passed to generate.py",
+        "lint result is reported to the user",
+        "no PDF/PPTX/HTML file is generated"
+      ],
+      "pass_metric": "pass@3",
+      "threshold": 0.9
+    },
+    {
+      "id": "CE-12",
+      "type": "capability",
+      "name": "json-output-mode",
+      "prompt": "スライドを生成してJSONで結果を返して",
+      "grader": "model",
+      "criteria": [
+        "--json flag is passed to generate.py",
+        "JSON output contains success, output_path, slide_count fields"
+      ],
+      "pass_metric": "pass@3",
+      "threshold": 0.9
     }
   ]
 }

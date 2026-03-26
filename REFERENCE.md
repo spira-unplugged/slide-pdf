@@ -170,6 +170,71 @@ footer: "Confidential — 2024"
 
 ---
 
+## 数式・技術スライドサポート（Math）
+
+`--math mathjax`（または `--math katex`）フラグを渡すと、フロントマターに `math: mathjax` が自動注入される。
+
+### インライン数式
+
+```markdown
+質量エネルギー等価: $E = mc^2$
+
+二次方程式の解: $x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}$
+```
+
+### ブロック数式
+
+```markdown
+$$
+\int_0^\infty e^{-x^2} dx = \frac{\sqrt{\pi}}{2}
+$$
+
+$$
+\mathbf{F} = m\mathbf{a}
+$$
+```
+
+### 数式スライド例
+
+```markdown
+---
+marp: true
+size: 16:9
+math: mathjax
+style: |
+  section { font-family: "Noto Sans CJK JP", sans-serif; }
+---
+
+<!-- _class: cover -->
+
+# 二次方程式
+
+---
+
+## 解の公式
+
+二次方程式 $ax^2 + bx + c = 0$ の解:
+
+$$
+x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}
+$$
+
+判別式 $D = b^2 - 4ac$ により:
+- $D > 0$: 異なる2実数解
+- $D = 0$: 重解
+- $D < 0$: 虚数解
+```
+
+### MathJax vs KaTeX
+
+| 項目 | MathJax | KaTeX |
+|------|---------|-------|
+| 対応記法 | 広い（AMS LaTeX 等） | 高速・基本的な LaTeX |
+| 速度 | やや遅い | 高速 |
+| 推奨 | デフォルト選択 | 速度重視の場合 |
+
+---
+
 ## スライド品質チェックリスト
 
 PDF 生成前に確認:

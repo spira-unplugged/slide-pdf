@@ -93,7 +93,7 @@ size: 16:9
 
 ### UE-1: count_slides — 基本カウント
 **Input**: `---` が3回（frontmatter終了 + スライド区切り2回）
-**Expected output**: `2`
+**Expected output**: `3`
 
 ### UE-2: count_slides — フロントマターのみ
 **Input**: frontmatter の `---` のみ
@@ -119,6 +119,25 @@ size: 16:9
 **Input**: すでに `style:` を持つ Markdown（UE-3と同じ）
 **Expected output**: 元のコンテンツと同一（inject されない）
 
+### UE-8〜14: format_to_marp_flag / default_output_path / should_inject_style / should_auto_outlines / inject_math
+各純粋関数の正常系・境界値テスト。詳細は `evals/grade.py` 参照。
+
+### UE-15〜31: セキュリティ・新機能テスト（v1.1.0追加）
+- UE-15: `safe_path` パストラバーサルを `PathSecurityError` でブロック
+- UE-16: `count_slides` — fenced code block 内の `---` を誤カウントしない
+- UE-17: `should_auto_outlines` 境界値（閾値ちょうど=False）
+- UE-18: `inject_math` katex エンジン
+- UE-19: `format_to_marp_flag` 無効値で ValueError
+- UE-20: `inject_size` — `4:3` 注入
+- UE-21: `inject_size` — 既存 size を上書きしない
+- UE-22: `has_size_block` — True ケース
+- UE-23〜25: `lint_slides` 正常・marp:true欠落・カバースライド欠落
+- UE-26: `has_size_block` — False ケース
+- UE-27: `inject_size` — フロントマターなし
+- UE-28: `lint_slides` — `size:` 欠落は [WARNING]（非ブロッキング）
+- UE-29: `lint_slides` — コードブロック内のカバー指示は無視
+- UE-30〜31: `has_style_block` / `has_math_block` — YAML値サブストリングの偽陽性なし
+
 ---
 
 ## Success Metrics
@@ -143,6 +162,6 @@ python evals/grade.py
 
 ## Eval Run Log
 
-| Date | CE-1 | CE-2 | CE-3 | CE-4 | RE-1 | RE-2 | RE-3 | UE 1-7 |
-|------|------|------|------|------|------|------|------|---------|
-| — | — | — | — | — | — | — | — | — |
+| Date | CE-1 | CE-2 | CE-3 | CE-4 | CE-5 | CE-6 | CE-7 | CE-8 | CE-9 | RE-1 | RE-2 | RE-3 | UE 1-14 |
+|------|------|------|------|------|------|------|------|------|------|------|------|------|---------|
+| 2026-03-26 | — | — | — | — | — | — | — | — | — | — | — | — | 14/14 PASS |
