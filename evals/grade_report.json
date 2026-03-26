@@ -40,5 +40,113 @@
     "name": "inject_style-no-overwrite",
     "status": "PASS",
     "detail": "content unchanged"
+  },
+  {
+    "id": "UE-8",
+    "name": "format_to_marp_flag-pdf",
+    "status": "PASS",
+    "detail": "got '--pdf', expected '--pdf'"
+  },
+  {
+    "id": "UE-9",
+    "name": "default_output_path-pptx",
+    "status": "PASS",
+    "detail": "got '/mnt/user-data/outputs/slides.pptx'"
+  },
+  {
+    "id": "UE-10",
+    "name": "should_inject_style-default",
+    "status": "PASS",
+    "detail": "got True, expected True"
+  },
+  {
+    "id": "UE-11",
+    "name": "should_inject_style-gaia",
+    "status": "PASS",
+    "detail": "got False, expected False"
+  },
+  {
+    "id": "UE-12",
+    "name": "should_auto_outlines",
+    "status": "PASS",
+    "detail": "count=6:True count=3:False"
+  },
+  {
+    "id": "UE-13",
+    "name": "inject_math-adds-mathjax",
+    "status": "PASS",
+    "detail": "math:mathjax present:True"
+  },
+  {
+    "id": "UE-14",
+    "name": "inject_math-no-overwrite",
+    "status": "PASS",
+    "detail": "content unchanged"
+  },
+  {
+    "id": "UE-15",
+    "name": "safe_path-traversal-blocked",
+    "status": "PASS",
+    "detail": "PathSecurityError raised"
+  },
+  {
+    "id": "UE-16",
+    "name": "count_slides-skip-fenced-code",
+    "status": "PASS",
+    "detail": "got 2, expected 2 (--- in code block should not count)"
+  },
+  {
+    "id": "UE-17",
+    "name": "should_auto_outlines-boundary",
+    "status": "PASS",
+    "detail": "count=5 (exactly at threshold): got False, expected False"
+  },
+  {
+    "id": "UE-18",
+    "name": "inject_math-katex",
+    "status": "PASS",
+    "detail": "math:katex present:True"
+  },
+  {
+    "id": "UE-19",
+    "name": "format_to_marp_flag-invalid-raises",
+    "status": "PASS",
+    "detail": "ValueError raised"
+  },
+  {
+    "id": "UE-20",
+    "name": "inject_size-adds-4x3",
+    "status": "PASS",
+    "detail": "size:4:3 present:True"
+  },
+  {
+    "id": "UE-21",
+    "name": "inject_size-no-overwrite",
+    "status": "PASS",
+    "detail": "content unchanged"
+  },
+  {
+    "id": "UE-22",
+    "name": "has_size_block-true",
+    "status": "PASS",
+    "detail": "got True, expected True"
+  },
+  {
+    "id": "UE-23",
+    "name": "lint_slides-valid",
+    "status": "PASS",
+    "detail": "no issues"
+  },
+  {
+    "id": "UE-24",
+    "name": "lint_slides-missing-marp",
+    "status": "PASS",
+    "detail": "valid:False issues:[\"Frontmatter missing 'marp: true'\"]"
+  },
+  {
+    "id": "UE-25",
+    "name": "lint_slides-missing-cover",
+    "status": "PASS",
+    "detail": "valid:False issues:['No cover slide found. Add <!-- _class: cover --> or <!-- _class: lead --> to the first slide']"
   }
 ]
